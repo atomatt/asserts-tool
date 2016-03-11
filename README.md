@@ -2,8 +2,16 @@
 
 ## Install
 
+Install a local copy in an empty directory.
+
 ```
 GOPATH=`pwd` go get -v github.com/emgee/asserts-tool
+```
+
+Run as
+
+```
+./bin/asserts-tool ...
 ```
 
 

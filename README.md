@@ -1,5 +1,11 @@
 # asserts-tool
 
+## Install
+
+```
+GOPATH=`pwd` go get -v github.com/emgee/asserts-tool
+```
+
 
 ## Overview
 

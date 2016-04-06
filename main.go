@@ -28,6 +28,12 @@ func main() {
 		&keyCmd{},
 	)
 	parser.AddCommand(
+		"key-info",
+		"inspect signing key",
+		"Inspect a signing key and display the key ID, fingerprint, and encoded public key (as needed for an account-key assertion).",
+		&keyInfoCmd{},
+	)
+	parser.AddCommand(
 		"assertion",
 		"generate new assertion",
 		"Generate an assertion, signed by the assertion's authority-id.",
@@ -59,28 +65,44 @@ func (cmd *keyCmd) Execute(args []string) error {
 		return err
 	}
 
-	keyPacket := packet.NewRSAPrivateKey(time.Now(), rsaKey)
-	encodedPubKey, err := asserts.EncodePublicKey(asserts.OpenPGPPrivateKey(keyPacket).PublicKey())
-	if err != nil {
-		return err
-	}
-
-	encodedPubKey = []byte(strings.Replace(string(encodedPubKey), "\n", "", -1))
-
-	log.Printf("public-key-id: %x", keyPacket.PublicKey.KeyId)
-	log.Printf("public-key-fingerprint: %x", keyPacket.PublicKey.Fingerprint)
-	log.Printf("public-key: %s", encodedPubKey)
-
 	w, err := armor.Encode(os.Stdout, openpgp.PrivateKeyType, nil)
 	if err != nil {
 		return err
 	}
+
+	keyPacket := packet.NewRSAPrivateKey(time.Now(), rsaKey)
 	keyPacket.Serialize(w)
 
 	userId := packet.NewUserId(cmd.Name, cmd.Comment, cmd.Email)
 	userId.Serialize(w)
 
 	w.Close()
+
+	return nil
+}
+
+// keyInfoCmd is used to inspect an existing private key.
+type keyInfoCmd struct {
+	Args struct {
+		FileName string `positional-arg-name:"file-name" required:"1"`
+	} `positional-args:"1"`
+}
+
+func (cmd *keyInfoCmd) Execute(args []string) error {
+	key, err := readPGPPrivateKey(cmd.Args.FileName)
+	if err != nil {
+		return err
+	}
+
+	encodedPubKey, err := asserts.EncodePublicKey(asserts.OpenPGPPrivateKey(key).PublicKey())
+	if err != nil {
+		return err
+	}
+	encodedPubKey = []byte(strings.Replace(string(encodedPubKey), "\n", "", -1))
+
+	log.Printf("public-key-id: %x", key.PublicKey.KeyId)
+	log.Printf("public-key-fingerprint: %x", key.PublicKey.Fingerprint)
+	log.Printf("public-key: %s", encodedPubKey)
 
 	return nil
 }
@@ -201,7 +223,7 @@ func readSigningKeys(signingKeys map[string]string) (map[string]asserts.PrivateK
 	for authorityID, keyFile := range signingKeys {
 		authorityID = strings.TrimSpace(authorityID)
 		keyFile = strings.TrimSpace(keyFile)
-		key, err := readPrivatePGPKey(keyFile)
+		key, err := readPrivateKey(keyFile)
 		if err != nil {
 			return nil, fmt.Errorf("error reading key for %s (%s)", authorityID, err.Error())
 		}
@@ -210,7 +232,15 @@ func readSigningKeys(signingKeys map[string]string) (map[string]asserts.PrivateK
 	return out, nil
 }
 
-func readPrivatePGPKey(path string) (asserts.PrivateKey, error) {
+func readPrivateKey(path string) (asserts.PrivateKey, error) {
+	pgpKey, err := readPGPPrivateKey(path)
+	if err != nil {
+		return nil, err
+	}
+	return asserts.OpenPGPPrivateKey(pgpKey), nil
+}
+
+func readPGPPrivateKey(path string) (*packet.PrivateKey, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -236,7 +266,7 @@ func readPrivatePGPKey(path string) (asserts.PrivateKey, error) {
 		return nil, fmt.Errorf("not a private key")
 	}
 
-	return asserts.OpenPGPPrivateKey(privateKey), nil
+	return privateKey, nil
 }
 
 func readAccountKeys(paths []string) ([]*asserts.AccountKey, error) {

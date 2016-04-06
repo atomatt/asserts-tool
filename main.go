@@ -24,19 +24,19 @@ func main() {
 	parser.AddCommand(
 		"key",
 		"generate new key",
-		"generate new key that can be used to sign assertions",
+		"Generate new key that can be used to sign assertions.",
 		&keyCmd{},
 	)
 	parser.AddCommand(
 		"assertion",
 		"generate new assertion",
-		"generate an assertion, signed by the assertion's authority-id",
+		"Generate an assertion, signed by the assertion's authority-id.",
 		&assertionCmd{},
 	)
 	parser.AddCommand(
 		"check",
 		"check assertion chain",
-		"check assertions chain can be loaded",
+		"Check chain of assertions can be loaded.",
 		&checkCmd{},
 	)
 
